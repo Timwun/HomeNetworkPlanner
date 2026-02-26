@@ -1,5 +1,8 @@
 # Home Network Planner
 
+⚠️🚨 **CAUTION** 🚨⚠️  
+**This project is vibe-coded.** 
+
 A TypeScript-based web application for managing and visualizing your home network devices. Keep track of IP addresses, device types, network connections, and view your network topology in an interactive diagram.
 
 ## Features
@@ -37,7 +40,7 @@ A TypeScript-based web application for managing and visualizing your home networ
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone git@github.com:Timwun/HomeNetworkPlanner.git
    cd HomeNetworkPlanner
    ```
 
