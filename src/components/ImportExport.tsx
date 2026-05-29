@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useNetwork } from '../context/NetworkContext';
-import { PRIVATE_SUBNET_GROUPS, PRIVATE_SUBNETS } from '../types/network';
+import { NETWORK_RANGE_GROUPS, NETWORK_RANGES } from '../utils/networkRanges';
 import { Download, Upload, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 
 export const ImportExport: React.FC = () => {
@@ -49,7 +49,6 @@ export const ImportExport: React.FC = () => {
     };
     reader.readAsText(file);
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -78,19 +77,19 @@ export const ImportExport: React.FC = () => {
           onChange={(e) => setSubnet(e.target.value)}
           className="w-full sm:max-w-md px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          {PRIVATE_SUBNET_GROUPS.map((group) => (
+          {NETWORK_RANGE_GROUPS.map((group) => (
             <optgroup key={group} label={group}>
-              {PRIVATE_SUBNETS.filter((option) => option.group === group).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.value}.x
+              {NETWORK_RANGES.filter((range) => range.group === group).map((range) => (
+                <option key={range.id} value={range.id}>
+                  {range.label}
                 </option>
               ))}
             </optgroup>
           ))}
         </select>
         <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-          Device IPs are validated against this subnet. Switching updates existing device addresses
-          while keeping the same host number.
+          Device IPs must fall within the selected range. Switching ranges updates existing device
+          addresses where possible.
         </p>
       </div>
 

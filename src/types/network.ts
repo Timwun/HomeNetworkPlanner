@@ -78,34 +78,3 @@ export const DEFAULT_SUBNET = '192.168.178';
 
 /** @deprecated Use DEFAULT_SUBNET or config.subnet instead */
 export const IP_SUBNET = DEFAULT_SUBNET;
-
-export interface PrivateSubnetOption {
-  value: string;
-  group: string;
-}
-
-const CLASS_A_SUBNETS = ['10.0.0', '10.0.1', '10.1.0', '10.1.1', '10.10.10'] as const;
-
-const CLASS_B_SUBNETS = Array.from({ length: 16 }, (_, i) => `172.${16 + i}.0`);
-
-const CLASS_C_SUBNETS = [
-  '192.168.0',
-  '192.168.1',
-  '192.168.2',
-  '192.168.10',
-  '192.168.100',
-  '192.168.178',
-  '192.168.254',
-] as const;
-
-export const PRIVATE_SUBNETS: PrivateSubnetOption[] = [
-  ...CLASS_A_SUBNETS.map((value) => ({ value, group: '10.0.0.0/8 (Class A)' })),
-  ...CLASS_B_SUBNETS.map((value) => ({ value, group: '172.16.0.0/12 (Class B)' })),
-  ...CLASS_C_SUBNETS.map((value) => ({ value, group: '192.168.0.0/16 (Class C)' })),
-];
-
-export const PRIVATE_SUBNET_GROUPS = [
-  '10.0.0.0/8 (Class A)',
-  '172.16.0.0/12 (Class B)',
-  '192.168.0.0/16 (Class C)',
-] as const;

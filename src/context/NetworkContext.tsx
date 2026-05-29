@@ -2,8 +2,7 @@ import React, { createContext, useContext, type ReactNode } from 'react';
 import type { Device, NetworkConfig } from '../types/network';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getInitialConfig } from '../utils/initialData';
-import { findIPConflicts, migrateIPToSubnet } from '../utils/validators';
-import { DEFAULT_SUBNET } from '../types/network';
+import { findIPConflicts, migrateIPToRange, normalizeNetworkRange } from '../utils/networkRanges';
 
 interface NetworkContextType {
   config: NetworkConfig;
@@ -97,7 +96,7 @@ export const NetworkProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
       setConfig({
         ...importedConfig,
-        subnet: importedConfig.subnet ?? DEFAULT_SUBNET,
+        subnet: normalizeNetworkRange(importedConfig.subnet),
         lastModified: new Date().toISOString(),
       });
     } catch (error) {
@@ -109,17 +108,18 @@ export const NetworkProvider: React.FC<{ children: ReactNode }> = ({ children })
     setConfig(getInitialConfig());
   };
 
-  const subnet = config.subnet ?? DEFAULT_SUBNET;
+  const subnet = normalizeNetworkRange(config.subnet);
 
   const setSubnet = (newSubnet: string) => {
-    if (newSubnet === subnet) return;
+    const normalized = normalizeNetworkRange(newSubnet);
+    if (normalized === subnet) return;
 
     setConfig({
       ...config,
-      subnet: newSubnet,
+      subnet: normalized,
       devices: config.devices.map((device) => ({
         ...device,
-        ipAddress: migrateIPToSubnet(device.ipAddress, newSubnet),
+        ipAddress: migrateIPToRange(device.ipAddress, normalized),
       })),
       lastModified: new Date().toISOString(),
     });
