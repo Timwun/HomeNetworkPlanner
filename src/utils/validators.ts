@@ -16,6 +16,7 @@ export {
   getRangePrefix,
   buildSlash24Address,
   buildSlash16Address,
+  compareIpAddresses,
   migrateIPToRange as migrateIPToSubnet,
   buildSlash24Address as buildIPAddress,
 } from './networkRanges';

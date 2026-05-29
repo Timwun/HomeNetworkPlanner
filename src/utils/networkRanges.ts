@@ -142,6 +142,17 @@ export const validateIPAddress = (
   return { valid: true };
 };
 
+export function compareIpAddresses(a: string, b: string): number {
+  const aOctets = parseIPAddress(a);
+  const bOctets = parseIPAddress(b);
+
+  if (!aOctets && !bOctets) return 0;
+  if (!aOctets) return 1;
+  if (!bOctets) return -1;
+
+  return ipToNumber(aOctets) - ipToNumber(bOctets);
+}
+
 export const findIPConflicts = (
   devices: Array<{ id: string; ipAddress: string }>,
   currentDeviceId?: string,

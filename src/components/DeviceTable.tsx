@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Device, DeviceType } from '../types/network';
 import { DEVICE_TYPE_LABELS, DEVICE_TYPE_COLORS } from '../types/network';
 import { useNetwork } from '../context/NetworkContext';
+import { compareIpAddresses } from '../utils/networkRanges';
 import { Pencil, Trash2, AlertTriangle, ArrowUpDown } from 'lucide-react';
 
 type SortField = 'ipAddress' | 'name' | 'type';
@@ -53,9 +54,7 @@ export const DeviceTable: React.FC<DeviceTableProps> = ({ onEditDevice }) => {
       let compareValue = 0;
 
       if (sortField === 'ipAddress') {
-        const aOctet = parseInt(a.ipAddress.split('.')[3]);
-        const bOctet = parseInt(b.ipAddress.split('.')[3]);
-        compareValue = aOctet - bOctet;
+        compareValue = compareIpAddresses(a.ipAddress, b.ipAddress);
       } else if (sortField === 'name') {
         compareValue = a.name.localeCompare(b.name);
       } else if (sortField === 'type') {
