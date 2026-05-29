@@ -1,30 +1,77 @@
-import { IP_SUBNET } from "../types/network";
+import { DEFAULT_SUBNET } from '../types/network';
 
-export const validateIPAddress = (
-  ip: string,
-): { valid: boolean; error?: string } => {
-  // Check if IP matches the required subnet
-  const ipRegex = /^192\.168\.178\.(\d+)$/;
-  const match = ip.match(ipRegex);
+const escapeRegex = (value: string): string => value.replace(/\./g, '\\.');
 
-  if (!match) {
-    return {
-      valid: false,
-      error: `IP address must be in the ${IP_SUBNET}.x format (e.g., ${IP_SUBNET}.1)`,
-    };
+const getSubnetPattern = (subnet: string): RegExp =>
+  new RegExp(`^${escapeRegex(subnet)}\\.(\\d+)$`);
+
+export const parseIPAddress = (ip: string): number[] | null => {
+  const parts = ip.trim().split('.');
+  if (parts.length !== 4) return null;
+
+  const octets = parts.map((part) => parseInt(part, 10));
+  if (octets.some((octet) => isNaN(octet) || octet < 0 || octet > 255)) {
+    return null;
   }
 
-  const lastOctet = parseInt(match[1], 10);
+  return octets;
+};
 
-  if (lastOctet < 1 || lastOctet > 254) {
+export const isPrivateIP = (octets: number[]): boolean => {
+  const [first, second] = octets;
+  return (
+    first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168)
+  );
+};
+
+export const validateIPAddress = (ip: string): { valid: boolean; error?: string } => {
+  const octets = parseIPAddress(ip);
+  if (!octets) {
+    return { valid: false, error: 'Enter a valid IP address (e.g., 192.168.1.10)' };
+  }
+
+  const host = octets[3];
+  if (host < 1 || host > 254) {
+    return { valid: false, error: 'Last octet must be between 1 and 254' };
+  }
+
+  if (!isPrivateIP(octets)) {
     return {
       valid: false,
-      error: "Last octet must be between 1 and 254",
+      error: 'Must be a private address (10.x.x.x, 172.16.x.x–172.31.x.x, or 192.168.x.x)',
     };
   }
 
   return { valid: true };
 };
+
+export const validateHostOctet = (host: string): { valid: boolean; error?: string } => {
+  if (!/^\d+$/.test(host)) {
+    return { valid: false, error: 'Host must be a number between 1 and 254' };
+  }
+
+  const value = parseInt(host, 10);
+  if (value < 1 || value > 254) {
+    return { valid: false, error: 'Host must be between 1 and 254' };
+  }
+
+  return { valid: true };
+};
+
+export const getPrefixFromIP = (ip: string, fallback: string = DEFAULT_SUBNET): string => {
+  const octets = parseIPAddress(ip);
+  if (!octets) return fallback;
+  return `${octets[0]}.${octets[1]}.${octets[2]}`;
+};
+
+export const getHostOctetFromIP = (ip: string): string => {
+  const octets = parseIPAddress(ip);
+  return octets ? String(octets[3]) : '1';
+};
+
+export const buildIPAddress = (prefix: string, host: string): string => `${prefix}.${host}`;
 
 export const findIPConflicts = (
   devices: Array<{ id: string; ipAddress: string }>,
@@ -33,17 +80,14 @@ export const findIPConflicts = (
   const conflicts = new Map<string, string[]>();
   const ipToDevices = new Map<string, string[]>();
 
-  // Group devices by IP address
   devices.forEach((device) => {
     const existingDevices = ipToDevices.get(device.ipAddress) || [];
     existingDevices.push(device.id);
     ipToDevices.set(device.ipAddress, existingDevices);
   });
 
-  // Find conflicts (IPs with multiple devices)
   ipToDevices.forEach((deviceIds, ip) => {
     if (deviceIds.length > 1) {
-      // If we're editing a device, only flag as conflict if other devices have the same IP
       if (currentDeviceId) {
         const otherDevices = deviceIds.filter((id) => id !== currentDeviceId);
         if (otherDevices.length > 0) {
@@ -58,35 +102,40 @@ export const findIPConflicts = (
   return conflicts;
 };
 
-export const getNextAvailableIP = (usedIPs: string[]): string => {
+export const getNextAvailableIP = (
+  usedIPs: string[],
+  subnet: string = DEFAULT_SUBNET,
+): string => {
+  const pattern = getSubnetPattern(subnet);
   const usedLastOctets = usedIPs
     .map((ip) => {
-      const match = ip.match(/^192\.168\.178\.(\d+)$/);
+      const match = ip.match(pattern);
       return match ? parseInt(match[1], 10) : null;
     })
     .filter((n): n is number => n !== null);
 
-  // If no IPs are in use, start with .1
   if (usedLastOctets.length === 0) {
-    return `${IP_SUBNET}.1`;
+    return `${subnet}.1`;
   }
 
-  // Find the highest used IP and add 1
   const highestOctet = Math.max(...usedLastOctets);
   const nextOctet = highestOctet + 1;
 
-  // Make sure we don't exceed the valid range
   if (nextOctet <= 254) {
-    return `${IP_SUBNET}.${nextOctet}`;
+    return `${subnet}.${nextOctet}`;
   }
 
-  // If highest + 1 would exceed 254, fall back to first available
   const usedSet = new Set(usedLastOctets);
   for (let i = 1; i <= 254; i++) {
     if (!usedSet.has(i)) {
-      return `${IP_SUBNET}.${i}`;
+      return `${subnet}.${i}`;
     }
   }
 
-  return `${IP_SUBNET}.1`; // Fallback
+  return `${subnet}.1`;
+};
+
+export const migrateIPToSubnet = (ip: string, subnet: string): string => {
+  const host = getHostOctetFromIP(ip);
+  return buildIPAddress(subnet, host);
 };

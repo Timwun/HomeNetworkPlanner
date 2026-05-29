@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import type { Device, DeviceType, ConnectionType, Port } from '../types/network';
-import { DEVICE_TYPE_LABELS } from '../types/network';
+import { DEVICE_TYPE_LABELS, PRIVATE_SUBNET_GROUPS, PRIVATE_SUBNETS } from '../types/network';
 import { useNetwork } from '../context/NetworkContext';
-import { validateIPAddress, getNextAvailableIP } from '../utils/validators';
+import {
+  validateIPAddress,
+  getNextAvailableIP,
+  buildIPAddress,
+  getPrefixFromIP,
+  getHostOctetFromIP,
+} from '../utils/validators';
 import { X, Plus, Trash2 } from 'lucide-react';
 
 interface DeviceFormProps {
@@ -11,21 +17,41 @@ interface DeviceFormProps {
 }
 
 export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
-  const { devices, addDevice, updateDevice, hasIPConflict, getDevice } = useNetwork();
+  const { devices, addDevice, updateDevice, hasIPConflict, getDevice, subnet, setSubnet } =
+    useNetwork();
   const isEditing = !!device;
+
+  const initialIP = device?.ipAddress || getNextAvailableIP(devices.map((d) => d.ipAddress), subnet);
 
   const [formData, setFormData] = useState<Partial<Device>>({
     name: '',
-    ipAddress: getNextAvailableIP(devices.map((d) => d.ipAddress)),
+    ipAddress: initialIP,
     type: 'other',
     notes: '',
     ...device,
   });
+  const [ipPrefix, setIpPrefix] = useState(() => getPrefixFromIP(initialIP, subnet));
+  const [ipHost, setIpHost] = useState(() => getHostOctetFromIP(initialIP));
 
   const [ipError, setIpError] = useState<string>('');
   const [ports, setPorts] = useState<Port[]>(device?.networkDevice?.ports || []);
   const [newPortName, setNewPortName] = useState('');
   const [newPortType, setNewPortType] = useState<ConnectionType>('ethernet');
+
+  useEffect(() => {
+    const ipAddress = buildIPAddress(ipPrefix, ipHost);
+    setFormData((prev) => (prev.ipAddress === ipAddress ? prev : { ...prev, ipAddress }));
+  }, [ipPrefix, ipHost]);
+
+  useEffect(() => {
+    if (isEditing) return;
+
+    if (subnet !== ipPrefix) {
+      const nextIP = getNextAvailableIP(devices.map((d) => d.ipAddress), subnet);
+      setIpPrefix(subnet);
+      setIpHost(getHostOctetFromIP(nextIP));
+    }
+  }, [subnet, isEditing, devices, ipPrefix]);
 
   useEffect(() => {
     if (formData.ipAddress) {
@@ -151,18 +177,51 @@ export const DeviceForm: React.FC<DeviceFormProps> = ({ device, onClose }) => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               IP Address *
             </label>
-            <input
-              type="text"
-              value={formData.ipAddress}
-              onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
-              placeholder="192.168.178.x"
-              className={`w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                ipError
-                  ? 'border-red-500 dark:border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              }`}
-              required
-            />
+            <div className="flex items-center gap-2">
+              <select
+                value={ipPrefix}
+                onChange={(e) => {
+                  const nextPrefix = e.target.value;
+                  setIpPrefix(nextPrefix);
+                  setSubnet(nextPrefix);
+                }}
+                className={`flex-1 min-w-0 px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  ipError
+                    ? 'border-red-500 dark:border-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+              >
+                {!PRIVATE_SUBNETS.some((option) => option.value === ipPrefix) && (
+                  <option value={ipPrefix}>{ipPrefix}.x</option>
+                )}
+                {PRIVATE_SUBNET_GROUPS.map((group) => (
+                  <optgroup key={group} label={group}>
+                    {PRIVATE_SUBNETS.filter((option) => option.group === group).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.value}.x
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <span className="text-gray-500 dark:text-gray-400">.</span>
+              <input
+                type="number"
+                min={1}
+                max={254}
+                value={ipHost}
+                onChange={(e) => setIpHost(e.target.value)}
+                className={`w-24 px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  ipError
+                    ? 'border-red-500 dark:border-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                required
+              />
+            </div>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Full address: {formData.ipAddress}
+            </p>
             {ipError && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{ipError}</p>}
           </div>
 

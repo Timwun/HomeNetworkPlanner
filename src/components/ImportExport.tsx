@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { useNetwork } from '../context/NetworkContext';
+import { PRIVATE_SUBNET_GROUPS, PRIVATE_SUBNETS } from '../types/network';
 import { Download, Upload, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 
 export const ImportExport: React.FC = () => {
-  const { exportConfig, importConfig, resetToDefault } = useNetwork();
+  const { exportConfig, importConfig, resetToDefault, subnet, setSubnet } = useNetwork();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -68,6 +69,31 @@ export const ImportExport: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Private Address Range
+        </label>
+        <select
+          value={subnet}
+          onChange={(e) => setSubnet(e.target.value)}
+          className="w-full sm:max-w-md px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          {PRIVATE_SUBNET_GROUPS.map((group) => (
+            <optgroup key={group} label={group}>
+              {PRIVATE_SUBNETS.filter((option) => option.group === group).map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.value}.x
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          Device IPs are validated against this subnet. Switching updates existing device addresses
+          while keeping the same host number.
+        </p>
+      </div>
+
       {message && (
         <div
           className={`px-4 py-3 rounded-lg flex items-center gap-2 ${
