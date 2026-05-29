@@ -137,9 +137,9 @@ function AppContent() {
                 <NetworkDiagram />
                 <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
                   <p>
-                    <strong>Tip:</strong> Drag devices to rearrange the network diagram. Animated
-                    lines represent WiFi connections, solid lines represent wired Ethernet
-                    connections.
+                    <strong>Tip:</strong> Use <strong>Auto Layout</strong> to arrange devices by
+                    network topology, or drag devices to rearrange manually. Animated lines
+                    represent WiFi connections, solid lines represent wired Ethernet connections.
                   </p>
                 </div>
               </>
