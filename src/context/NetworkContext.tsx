@@ -9,6 +9,7 @@ interface NetworkContextType {
   devices: Device[];
   addDevice: (device: Device) => void;
   updateDevice: (id: string, updates: Partial<Device>) => void;
+  updateDevicePositions: (positions: Record<string, { x: number; y: number }>) => void;
   deleteDevice: (id: string) => void;
   getDevice: (id: string) => Device | undefined;
   getIPConflicts: () => Map<string, string[]>;
@@ -41,6 +42,18 @@ export const NetworkProvider: React.FC<{ children: ReactNode }> = ({ children })
       devices: config.devices.map((device) =>
         device.id === id ? { ...device, ...updates } : device
       ),
+      lastModified: new Date().toISOString(),
+    };
+    setConfig(newConfig);
+  };
+
+  const updateDevicePositions = (positions: Record<string, { x: number; y: number }>) => {
+    const newConfig: NetworkConfig = {
+      ...config,
+      devices: config.devices.map((device) => {
+        const position = positions[device.id];
+        return position ? { ...device, position } : device;
+      }),
       lastModified: new Date().toISOString(),
     };
     setConfig(newConfig);
@@ -97,6 +110,7 @@ export const NetworkProvider: React.FC<{ children: ReactNode }> = ({ children })
     devices: config.devices,
     addDevice,
     updateDevice,
+    updateDevicePositions,
     deleteDevice,
     getDevice,
     getIPConflicts,

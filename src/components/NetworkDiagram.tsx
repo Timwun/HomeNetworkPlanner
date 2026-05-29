@@ -1,19 +1,34 @@
 import React, { useCallback, useMemo } from 'react';
 import ReactFlow, {
   type Node,
-  type Edge,
   Controls,
   Background,
+  Panel,
+  ReactFlowProvider,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type NodeTypes,
-  MarkerType,
+  type EdgeTypes,
   Handle,
   Position,
 } from 'reactflow';
 import { useNetwork } from '../context/NetworkContext';
 import { DEVICE_TYPE_COLORS } from '../types/network';
-import { Network, HardDrive, Tv, Smartphone, Lightbulb, Car, Server, Wifi } from 'lucide-react';
+import { computeHierarchicalLayout } from '../utils/diagramLayout';
+import { buildDiagramEdges } from '../utils/diagramElements';
+import { TreeEdge } from './TreeEdge';
+import {
+  Network,
+  HardDrive,
+  Tv,
+  Smartphone,
+  Lightbulb,
+  Car,
+  Server,
+  Wifi,
+  AlignVerticalSpaceAround,
+} from 'lucide-react';
 
 const getIconForType = (type: string) => {
   switch (type) {
@@ -51,25 +66,15 @@ const CustomNode: React.FC<{ data: CustomNodeData }> = ({ data }) => {
     <div
       className={`px-4 py-3 rounded-lg border-2 shadow-lg min-w-[180px] ${data.colorClass} border-gray-400 dark:border-gray-600`}
     >
-      {/* Input handle (for connections coming into this node) */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{ background: '#555' }}
-      />
-      
+      <Handle type="target" position={Position.Top} style={{ background: '#555' }} />
+
       <div className="flex items-center gap-2 mb-2">
         {data.icon}
         <div className="font-semibold text-sm">{data.label}</div>
       </div>
       <div className="text-xs font-mono opacity-75">{data.ip}</div>
-      
-      {/* Output handle (for connections going out from this node) */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ background: '#555' }}
-      />
+
+      <Handle type="source" position={Position.Bottom} style={{ background: '#555' }} />
     </div>
   );
 };
@@ -78,8 +83,13 @@ const nodeTypes: NodeTypes = {
   custom: CustomNode,
 };
 
-export const NetworkDiagram: React.FC = () => {
-  const { devices, updateDevice, getDevice } = useNetwork();
+const edgeTypes: EdgeTypes = {
+  tree: TreeEdge,
+};
+
+const NetworkDiagramInner: React.FC = () => {
+  const { devices, updateDevice, updateDevicePositions, getDevice } = useNetwork();
+  const { fitView } = useReactFlow();
 
   const initialNodes: Node[] = useMemo(
     () =>
@@ -98,41 +108,14 @@ export const NetworkDiagram: React.FC = () => {
     [devices]
   );
 
-  const initialEdges: Edge[] = useMemo(() => {
-    const edges: Edge[] = [];
-    devices.forEach((device) => {
-      if (device.connectionPoint?.parentDeviceId) {
-        const parent = getDevice(device.connectionPoint.parentDeviceId);
-        const port = parent?.networkDevice?.ports.find(
-          (p) => p.id === device.connectionPoint?.portId
-        );
-
-        edges.push({
-          id: `edge-${device.id}`,
-          source: device.connectionPoint.parentDeviceId,
-          target: device.id,
-          type: 'smoothstep',
-          label: port?.name || '',
-          animated: device.connectionPoint.connectionType === 'wifi',
-          style: {
-            stroke:
-              device.connectionPoint.connectionType === 'wifi' ? '#3b82f6' : '#374151',
-            strokeWidth: 2,
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: device.connectionPoint.connectionType === 'wifi' ? '#3b82f6' : '#374151',
-          },
-        });
-      }
-    });
-    return edges;
-  }, [devices, getDevice]);
+  const initialEdges = useMemo(
+    () => buildDiagramEdges(devices, getDevice),
+    [devices, getDevice]
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Update nodes and edges when devices change
   React.useEffect(() => {
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
@@ -148,6 +131,20 @@ export const NetworkDiagram: React.FC = () => {
     [updateDevice]
   );
 
+  const handleAutoLayout = useCallback(() => {
+    const layout = computeHierarchicalLayout(devices);
+    const positions: Record<string, { x: number; y: number }> = {};
+    layout.forEach((pos, id) => {
+      positions[id] = pos;
+    });
+    updateDevicePositions(positions);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        fitView({ padding: 0.2 });
+      });
+    });
+  }, [devices, updateDevicePositions, fitView]);
+
   return (
     <div className="w-full h-[600px] bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-300 dark:border-gray-600">
       <ReactFlow
@@ -157,8 +154,9 @@ export const NetworkDiagram: React.FC = () => {
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         defaultEdgeOptions={{
-          type: 'smoothstep',
+          type: 'tree',
           animated: false,
           style: { stroke: '#374151', strokeWidth: 2 },
         }}
@@ -169,10 +167,29 @@ export const NetworkDiagram: React.FC = () => {
       >
         <Background color="#94a3b8" gap={16} />
         <Controls />
+        <Panel position="top-left">
+          <button
+            onClick={handleAutoLayout}
+            disabled={devices.length === 0}
+            className="px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Arrange devices by network topology"
+          >
+            <AlignVerticalSpaceAround className="w-4 h-4" />
+            Auto Layout
+          </button>
+        </Panel>
       </ReactFlow>
       <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-        Devices: {nodes.length} | Connections: {edges.length}
+        Devices: {devices.length} | Connections: {edges.length}
       </div>
     </div>
+  );
+};
+
+export const NetworkDiagram: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <NetworkDiagramInner />
+    </ReactFlowProvider>
   );
 };
